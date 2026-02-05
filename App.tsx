@@ -4,6 +4,7 @@ import { SafeAreaView as RNSSafeAreaView } from 'react-native-safe-area-context/
 import { View, Text, TextInput, TouchableOpacity, Alert, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
 import Register from './Register';
 import Dashboard from './Dashboard';
+import { apiService, LoginRequest } from './services/api';
 
 if (Platform.OS === 'web') {
   try { require('./web/tailwind.css'); } catch (e) { /* built CSS not found yet */ }
@@ -12,21 +13,40 @@ export default function App() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showRegister, setShowRegister] = useState(false);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [user, setUser] = useState<any>(null);
 
-  const handleLogin = () => {
-    // Replace with real auth; on success show dashboard
-    setIsAuthenticated(true);
+  const handleLogin = async () => {
+    if (!email || !password) {
+      Alert.alert('Error', 'Please fill in all fields');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const credentials: LoginRequest = { email, password };
+      const response = await apiService.login(credentials);
+      
+      apiService.setToken(response.token);
+      setUser(response.user);
+    } catch (error) {
+      Alert.alert('Login Failed', 'Invalid email or password');
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (showRegister) {
     return <Register onCancel={() => setShowRegister(false)} />;
   }
 
-  if (isAuthenticated) {
-    const displayName = email ? email.split('@')[0] : 'User';
-    const avatarUri = `https://i.pravatar.cc/150?u=${encodeURIComponent(email || 'anon')}`;
-    return <Dashboard email={email} name={displayName} avatarUri={avatarUri} onLogout={() => setIsAuthenticated(false)} />;
+  if (user) {
+    return <Dashboard 
+      email={user.email} 
+      name={user.name} 
+      avatarUri={user.avatar} 
+      onLogout={() => setUser(null)} 
+    />;
   }
 
   return (
@@ -40,7 +60,7 @@ export default function App() {
             <View style={styles.logo}>
               <Text style={styles.logoIcon}>🏥</Text>
             </View>
-            <Text style={styles.brandTitle}>SmartHealth</Text>
+            <Text style={styles.brandTitle}>Clinova</Text>
             <Text style={styles.brandSubtitle}>Your Personal Healthcare App</Text>
           </View>
         </View>
@@ -74,8 +94,8 @@ export default function App() {
               placeholderTextColor="#9CA3AF"
             />
 
-            <TouchableOpacity onPress={handleLogin} style={styles.button} activeOpacity={0.9}>
-              <Text style={styles.buttonText}>Sign in</Text>
+            <TouchableOpacity onPress={handleLogin} style={[styles.button, loading && styles.buttonDisabled]} activeOpacity={0.9} disabled={loading}>
+              <Text style={styles.buttonText}>{loading ? 'Signing in...' : 'Sign in'}</Text>
             </TouchableOpacity>
 
             <View style={styles.row}>
@@ -211,11 +231,8 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 4,
   },
-  buttonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '700',
-    letterSpacing: 0.5,
+  buttonDisabled: {
+    opacity: 0.6,
   },
   row: {
     flexDirection: 'row',

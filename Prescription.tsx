@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView } from 'react-native';
 
-export default function Perception() {
+export default function Prescription() {
   const latest = {
     date: '2026-01-29',
     summary: 'Headache, nausea, mild fever',
@@ -16,7 +16,7 @@ export default function Perception() {
   return (
     <SafeAreaView style={styles.safe}>
       <View style={styles.wrapper}>
-        <Text style={styles.pageTitle}>Perception</Text>
+        <Text style={styles.pageTitle}>Prescription</Text>
         <View style={styles.card}>
           <View style={styles.cardHeader}>
             <Text style={styles.cardTitle}>Health Insight</Text>

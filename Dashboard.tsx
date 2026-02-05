@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { SafeAreaView as RNSSafeAreaView } from 'react-native-safe-area-context/lib/commonjs/SafeAreaView';
 import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
-import Perception from './Perception';
+import Prescription from './Prescription';
 import Settings from './Settings';
 import Profile from './Profile';
 import Appointment from './Appointment';
@@ -14,7 +14,7 @@ type Props = {
 };
 
 export default function Dashboard({ email, onLogout, name, avatarUri }: Props) {
-  const [tab, setTab] = useState<'home' | 'appointments' | 'settings' | 'perception' | 'profile'>('home');
+  const [tab, setTab] = useState<'home' | 'appointments' | 'settings' | 'prescription' | 'profile'>('home');
   const pendingCount = 3;
   const waitingCount = 5;
   const displayName = name || (email ? email.split('@')[0] : 'User');
@@ -82,7 +82,7 @@ export default function Dashboard({ email, onLogout, name, avatarUri }: Props) {
           )}
           {tab === 'appointments' && <Appointment />}
           {tab === 'settings' && <Settings email={email} onLogout={onLogout} />}
-          {tab === 'perception' && <Perception />}
+          {tab === 'prescription' && <Prescription />}
         </View>
 
         <View style={styles.bottomMenu}>
@@ -94,9 +94,9 @@ export default function Dashboard({ email, onLogout, name, avatarUri }: Props) {
             <Text style={[styles.icon, tab === 'appointments' && styles.iconActive]}>📅</Text>
             <Text style={[styles.tabLabel, tab === 'appointments' && styles.tabLabelActive]}>Appointments</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.tab, tab === 'perception' && styles.tabActive]} onPress={() => setTab('perception')}>
-            <Text style={[styles.icon, tab === 'perception' && styles.iconActive]}>📊</Text>
-            <Text style={[styles.tabLabel, tab === 'perception' && styles.tabLabelActive]}>Perception</Text>
+          <TouchableOpacity style={[styles.tab, tab === 'prescription' && styles.tabActive]} onPress={() => setTab('prescription')}>
+            <Text style={[styles.icon, tab === 'prescription' && styles.iconActive]}>📊</Text>
+            <Text style={[styles.tabLabel, tab === 'prescription' && styles.tabLabelActive]}>Prescription</Text>
           </TouchableOpacity>
           <TouchableOpacity style={[styles.tab, tab === 'settings' && styles.tabActive]} onPress={() => setTab('settings')}>
             <Text style={[styles.icon, tab === 'settings' && styles.iconActive]}>⚙️</Text>

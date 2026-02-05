@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { SafeAreaView as RNSSafeAreaView } from 'react-native-safe-area-context/lib/commonjs/SafeAreaView';
 import { View, Text, TextInput, TouchableOpacity, Alert, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
+import { apiService, RegisterRequest } from './services/api';
 
 type Props = {
   onCancel: () => void;
@@ -13,9 +14,9 @@ export default function Register({ onCancel }: Props) {
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleRegister = () => {
+  const handleRegister = async () => {
     if (!fullName || !email || !password || !confirmPassword) {
       Alert.alert('Missing fields', 'Please fill in all required fields.');
       return;
@@ -25,8 +26,24 @@ export default function Register({ onCancel }: Props) {
       return;
     }
 
-    // Placeholder - replace with API call
-    Alert.alert('Registered', `Welcome, ${fullName}!`);
+    setLoading(true);
+    try {
+      const userData: RegisterRequest = { 
+        email, 
+        password, 
+        name: fullName,
+        phone: phone || undefined 
+      };
+      await apiService.register(userData);
+      
+      Alert.alert('Success', 'Account created successfully!', [
+        { text: 'OK', onPress: onCancel }
+      ]);
+    } catch (error) {
+      Alert.alert('Registration Failed', 'Please try again');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -62,8 +79,8 @@ export default function Register({ onCancel }: Props) {
             <Text style={styles.label}>Confirm password</Text>
             <TextInput value={confirmPassword} onChangeText={setConfirmPassword} placeholder="Repeat password" secureTextEntry style={[styles.input, styles.inputFilled]} placeholderTextColor="#9CA3AF" />
 
-            <TouchableOpacity onPress={handleRegister} style={styles.button} activeOpacity={0.9}>
-              <Text style={styles.buttonText}>Register</Text>
+            <TouchableOpacity onPress={handleRegister} style={[styles.button, loading && styles.buttonDisabled]} activeOpacity={0.9} disabled={loading}>
+              <Text style={styles.buttonText}>{loading ? 'Creating Account...' : 'Register'}</Text>
             </TouchableOpacity>
 
             <View style={styles.row}>
@@ -124,5 +141,7 @@ const styles = StyleSheet.create({
   button: { width: '100%', backgroundColor: '#2563EB', borderRadius: 8, paddingVertical: 12, alignItems: 'center', marginTop: 4 },
   buttonText: { color: '#FFFFFF', fontWeight: '600' },
   row: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 12 },
-  linkSecondary: { color: '#6B7280', fontSize: 13 },
+  buttonDisabled: {
+    opacity: 0.6,
+  },
 });
