@@ -4,7 +4,6 @@ import { SafeAreaView as RNSSafeAreaView } from 'react-native-safe-area-context/
 import { View, Text, TextInput, TouchableOpacity, Alert, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
 import Register from './Register';
 import Dashboard from './Dashboard';
-import { apiService, LoginRequest } from './services/api';
 
 if (Platform.OS === 'web') {
   try { require('./web/tailwind.css'); } catch (e) { /* built CSS not found yet */ }
@@ -16,24 +15,17 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [user, setUser] = useState<any>(null);
 
-  const handleLogin = async () => {
+  const handleLogin = () => {
     if (!email || !password) {
       Alert.alert('Error', 'Please fill in all fields');
       return;
     }
 
     setLoading(true);
-    try {
-      const credentials: LoginRequest = { email, password };
-      const response = await apiService.login(credentials);
-      
-      apiService.setToken(response.token);
-      setUser(response.user);
-    } catch (error) {
-      Alert.alert('Login Failed', 'Invalid email or password');
-    } finally {
+    setTimeout(() => {
+      setUser({ email, name: email.split('@')[0] });
       setLoading(false);
-    }
+    }, 500);
   };
 
   if (showRegister) {
@@ -136,11 +128,11 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#059669', // Medical green
+    backgroundColor: '#0EA5E9', // Sky blue
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
-    shadowColor: '#059669',
+    shadowColor: '#0EA5E9',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -220,12 +212,12 @@ const styles = StyleSheet.create({
   },
   button: {
     width: '100%',
-    backgroundColor: '#059669', // Medical green
+    backgroundColor: '#0EA5E9', // Sky blue
     borderRadius: 12,
     paddingVertical: 16,
     alignItems: 'center',
     marginTop: 8,
-    shadowColor: '#059669',
+    shadowColor: '#0EA5E9',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -240,7 +232,7 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
   link: {
-    color: '#059669', // Medical green
+    color: '#0EA5E9', // Sky blue
     fontSize: 14,
     fontWeight: '600',
   },

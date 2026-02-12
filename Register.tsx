@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { SafeAreaView as RNSSafeAreaView } from 'react-native-safe-area-context/lib/commonjs/SafeAreaView';
 import { View, Text, TextInput, TouchableOpacity, Alert, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
-import { apiService, RegisterRequest } from './services/api';
 
 type Props = {
   onCancel: () => void;
@@ -14,9 +13,12 @@ export default function Register({ onCancel }: Props) {
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const handleRegister = async () => {
+  const handleRegister = () => {
     if (!fullName || !email || !password || !confirmPassword) {
       Alert.alert('Missing fields', 'Please fill in all required fields.');
       return;
@@ -27,23 +29,12 @@ export default function Register({ onCancel }: Props) {
     }
 
     setLoading(true);
-    try {
-      const userData: RegisterRequest = { 
-        email, 
-        password, 
-        name: fullName,
-        phone: phone || undefined 
-      };
-      await apiService.register(userData);
-      
+    setTimeout(() => {
+      setLoading(false);
       Alert.alert('Success', 'Account created successfully!', [
         { text: 'OK', onPress: onCancel }
       ]);
-    } catch (error) {
-      Alert.alert('Registration Failed', 'Please try again');
-    } finally {
-      setLoading(false);
-    }
+    }, 500);
   };
 
   return (
@@ -74,10 +65,40 @@ export default function Register({ onCancel }: Props) {
             <TextInput value={email} onChangeText={setEmail} placeholder="you@company.com" keyboardType="email-address" autoCapitalize="none" style={[styles.input, styles.inputFilled]} placeholderTextColor="#9CA3AF" />
 
             <Text style={styles.label}>Password</Text>
-            <TextInput value={password} onChangeText={setPassword} placeholder="Create a password" secureTextEntry style={[styles.input, styles.inputFilled]} placeholderTextColor="#9CA3AF" />
+            <View style={styles.passwordContainer}>
+              <TextInput 
+                value={password} 
+                onChangeText={setPassword} 
+                placeholder="Create a password" 
+                secureTextEntry={!showPassword} 
+                style={[styles.input, styles.inputFilled, styles.passwordInput]} 
+                placeholderTextColor="#9CA3AF" 
+              />
+              <TouchableOpacity 
+                onPress={() => setShowPassword(!showPassword)} 
+                style={styles.eyeIcon}
+              >
+                <Text style={styles.eyeText}>{showPassword ? '👁️' : '👁️‍🗨️'}</Text>
+              </TouchableOpacity>
+            </View>
 
             <Text style={styles.label}>Confirm password</Text>
-            <TextInput value={confirmPassword} onChangeText={setConfirmPassword} placeholder="Repeat password" secureTextEntry style={[styles.input, styles.inputFilled]} placeholderTextColor="#9CA3AF" />
+            <View style={styles.passwordContainer}>
+              <TextInput 
+                value={confirmPassword} 
+                onChangeText={setConfirmPassword} 
+                placeholder="Repeat password" 
+                secureTextEntry={!showConfirmPassword} 
+                style={[styles.input, styles.inputFilled, styles.passwordInput]} 
+                placeholderTextColor="#9CA3AF" 
+              />
+              <TouchableOpacity 
+                onPress={() => setShowConfirmPassword(!showConfirmPassword)} 
+                style={styles.eyeIcon}
+              >
+                <Text style={styles.eyeText}>{showConfirmPassword ? '👁️' : '👁️‍🗨️'}</Text>
+              </TouchableOpacity>
+            </View>
 
             <TouchableOpacity onPress={handleRegister} style={[styles.button, loading && styles.buttonDisabled]} activeOpacity={0.9} disabled={loading}>
               <Text style={styles.buttonText}>{loading ? 'Creating Account...' : 'Register'}</Text>
@@ -143,5 +164,24 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 12 },
   buttonDisabled: {
     opacity: 0.6,
+  },
+  linkSecondary: { color: '#6B7280', fontSize: 13 },
+  passwordContainer: {
+    position: 'relative',
+    width: '100%',
+    marginBottom: 16,
+  },
+  passwordInput: {
+    marginBottom: 0,
+    paddingRight: 50,
+  },
+  eyeIcon: {
+    position: 'absolute',
+    right: 14,
+    top: 12,
+    padding: 4,
+  },
+  eyeText: {
+    fontSize: 20,
   },
 });
