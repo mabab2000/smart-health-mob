@@ -15,17 +15,36 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [user, setUser] = useState<any>(null);
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     if (!email || !password) {
       Alert.alert('Error', 'Please fill in all fields');
       return;
     }
 
     setLoading(true);
-    setTimeout(() => {
-      setUser({ email, name: email.split('@')[0] });
+    try {
+      const response = await fetch('https://clinic-backend-s2lx.onrender.com/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setUser(data.user);
+        Alert.alert('Success', data.message);
+      } else {
+        Alert.alert('Error', data.message || 'Login failed');
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Network error. Please try again.');
+    } finally {
       setLoading(false);
-    }, 500);
+    }
   };
 
   if (showRegister) {
@@ -37,6 +56,7 @@ export default function App() {
       email={user.email} 
       name={user.name} 
       avatarUri={user.avatar} 
+      userId={user.id}
       onLogout={() => setUser(null)} 
     />;
   }

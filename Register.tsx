@@ -18,7 +18,7 @@ export default function Register({ onCancel }: Props) {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const handleRegister = () => {
+  const handleRegister = async () => {
     if (!fullName || !email || !password || !confirmPassword) {
       Alert.alert('Missing fields', 'Please fill in all required fields.');
       return;
@@ -29,12 +29,36 @@ export default function Register({ onCancel }: Props) {
     }
 
     setLoading(true);
-    setTimeout(() => {
+    try {
+      const response = await fetch('https://clinic-backend-s2lx.onrender.com/api/auth/register', {
+        method: 'POST',
+        headers: {
+          'accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email,
+          password,
+          name: fullName,
+          role: 'patient',
+          status: 'pending'
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        Alert.alert('Success', data.message, [
+          { text: 'OK', onPress: onCancel }
+        ]);
+      } else {
+        Alert.alert('Error', data.message || 'Registration failed');
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Network error. Please try again.');
+    } finally {
       setLoading(false);
-      Alert.alert('Success', 'Account created successfully!', [
-        { text: 'OK', onPress: onCancel }
-      ]);
-    }, 500);
+    }
   };
 
   return (

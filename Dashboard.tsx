@@ -11,9 +11,10 @@ type Props = {
   onLogout: () => void;
   name?: string;
   avatarUri?: string;
+  userId?: number;
 };
 
-export default function Dashboard({ email, onLogout, name, avatarUri }: Props) {
+export default function Dashboard({ email, onLogout, name, avatarUri, userId }: Props) {
   const [tab, setTab] = useState<'home' | 'appointments' | 'settings' | 'prescription' | 'profile'>('home');
   const pendingCount = 3;
   const waitingCount = 5;
@@ -80,26 +81,26 @@ export default function Dashboard({ email, onLogout, name, avatarUri }: Props) {
               </View>
             </>
           )}
-          {tab === 'appointments' && <Appointment />}
+          {tab === 'appointments' && <Appointment userId={userId} />}
           {tab === 'settings' && <Settings email={email} onLogout={onLogout} />}
           {tab === 'prescription' && <Prescription />}
         </View>
 
         <View style={styles.bottomMenu}>
           <TouchableOpacity style={[styles.tab, tab === 'home' && styles.tabActive]} onPress={() => setTab('home')}>
-            <Text style={[styles.icon, tab === 'home' && styles.iconActive]}>🏠</Text>
+            
             <Text style={[styles.tabLabel, tab === 'home' && styles.tabLabelActive]}>Home</Text>
           </TouchableOpacity>
           <TouchableOpacity style={[styles.tab, tab === 'appointments' && styles.tabActive]} onPress={() => setTab('appointments')}>
-            <Text style={[styles.icon, tab === 'appointments' && styles.iconActive]}>📅</Text>
+
             <Text style={[styles.tabLabel, tab === 'appointments' && styles.tabLabelActive]}>Appointments</Text>
           </TouchableOpacity>
           <TouchableOpacity style={[styles.tab, tab === 'prescription' && styles.tabActive]} onPress={() => setTab('prescription')}>
-            <Text style={[styles.icon, tab === 'prescription' && styles.iconActive]}>📊</Text>
+            
             <Text style={[styles.tabLabel, tab === 'prescription' && styles.tabLabelActive]}>Prescription</Text>
           </TouchableOpacity>
           <TouchableOpacity style={[styles.tab, tab === 'settings' && styles.tabActive]} onPress={() => setTab('settings')}>
-            <Text style={[styles.icon, tab === 'settings' && styles.iconActive]}>⚙️</Text>
+            
             <Text style={[styles.tabLabel, tab === 'settings' && styles.tabLabelActive]}>Settings</Text>
           </TouchableOpacity>
         </View>

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Modal, TextInput, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Modal, TextInput, Platform, Alert } from 'react-native';
 import { SafeAreaView as RNSSafeAreaView } from 'react-native-safe-area-context/lib/commonjs/SafeAreaView';
 import Chat from './Chat';
 import VideoCall from './VideoCall';
@@ -13,7 +13,7 @@ type AppointmentItem = {
   notes?: string;
 };
 
-export default function Appointment() {
+export default function Appointment({ userId }: { userId?: number }) {
   const [appointments, setAppointments] = useState<AppointmentItem[]>([
     { id: '1', title: 'Dr. Emily Carter', datetime: 'Tomorrow • 10:30 AM', type: 'Teleconsult', notes: 'Video call — 20 minutes' },
    
@@ -24,12 +24,48 @@ export default function Appointment() {
   const [atype, setAtype] = useState('Teleconsult');
   const [notes, setNotes] = useState('');
 
-  const handleAdd = () => {
+  const handleAdd = async () => {
     if (!title || !datetime) return;
-    const item: AppointmentItem = { id: String(Date.now()), title, datetime, type: atype, notes };
-    setAppointments(prev => [item, ...prev]);
-    setShowAdd(false);
-    setTitle(''); setDatetime(''); setAtype('Teleconsult'); setNotes('');
+    if (!userId) {
+      Alert.alert('Error', 'User not logged in');
+      return;
+    }
+
+    try {
+      const response = await fetch('https://clinic-backend-s2lx.onrender.com/api/appointments/t', {
+        method: 'POST',
+        headers: {
+          'accept': '*/*',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          patient_id: userId,
+          date: datetime.split(' ')[0] || datetime,
+          time: new Date().toISOString(),
+          description: notes || atype,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        const item: AppointmentItem = { 
+          id: String(data.id), 
+          title, 
+          datetime, 
+          type: atype, 
+          notes 
+        };
+        setAppointments(prev => [item, ...prev]);
+        setShowAdd(false);
+        setTitle(''); setDatetime(''); setAtype('Teleconsult'); setNotes('');
+        Alert.alert('Success', 'Appointment created successfully');
+      } else {
+        Alert.alert('Error', data.message || 'Failed to create appointment');
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Network error. Please try again.');
+    }
   };
   const [videoTarget, setVideoTarget] = useState<AppointmentItem | null>(null);
   const [voiceTarget, setVoiceTarget] = useState<AppointmentItem | null>(null);
@@ -76,7 +112,7 @@ export default function Appointment() {
                   <Text style={styles.appTime}>{a.datetime}</Text>
                   <View style={[styles.typeBadge, a.type === 'Teleconsult' ? styles.teleconsultBadge : styles.inPersonBadge]}>
                     <Text style={[styles.typeText, a.type === 'Teleconsult' ? styles.teleconsultText : styles.inPersonText]}>
-                      {a.type === 'Teleconsult' ? '📹 Teleconsult' : '🏥 In-person'}
+                      {a.type === 'Teleconsult' ? ' Teleconsult' : ' In-person'}
                     </Text>
                   </View>
                 </View>
@@ -98,21 +134,21 @@ export default function Appointment() {
                 style={[styles.actionBtn, styles.primaryAction]} 
                 onPress={() => startVideo(a)}
               >
-                <Text style={styles.actionIcon}>📹</Text>
+                
                 <Text style={styles.actionText}>Video call</Text>
               </TouchableOpacity>
               <TouchableOpacity 
                 style={[styles.actionBtn, styles.secondaryAction]} 
                 onPress={() => startVoice(a)}
               >
-                <Text style={styles.actionIcon}>📞</Text>
+                
                 <Text style={styles.actionText}>Voice call</Text>
               </TouchableOpacity>
               <TouchableOpacity 
                 style={[styles.actionBtn, styles.tertiaryAction]} 
                 onPress={() => startChat(a)}
               >
-                <Text style={styles.actionIcon}>💬</Text>
+                
                 <Text style={styles.actionText}>Chat</Text>
               </TouchableOpacity>
             </View>
