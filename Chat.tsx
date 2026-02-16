@@ -4,25 +4,96 @@ import { SafeAreaView as RNSSafeAreaView } from 'react-native-safe-area-context/
 
 type Msg = { id: string; text: string; me?: boolean };
 
-export default function Chat({ onClose, name }: { onClose: () => void; name?: string }) {
+export default function Chat({ onClose, name, patientId, doctorId }: { onClose: () => void; name?: string; patientId: string | number; doctorId: string | number }) {
   const [messages, setMessages] = useState<Msg[]>([
     { id: '1', text: `Hi, this is ${name || 'Dr.'}. How can I help?` },
   ]);
   const [text, setText] = useState('');
   const listRef = useRef<FlatList<Msg>>(null);
+  const wsRef = useRef<WebSocket | null>(null);
 
   useEffect(() => {
     listRef.current?.scrollToEnd({ animated: false });
   }, []);
 
+  useEffect(() => {
+    if (!patientId) return;
+    try {
+      const url = `wss://chat.mababa.app/ws/${patientId}`;
+      const ws = new WebSocket(url);
+      wsRef.current = ws;
+
+      ws.onopen = () => {
+        // presence or ready handling if needed
+      };
+
+      ws.onmessage = ev => {
+        const raw = typeof ev.data === 'string' ? ev.data : '';
+        try {
+          const data = JSON.parse(ev.data);
+          if (data && data.content) {
+            const m: Msg = { id: String(Date.now()), text: String(data.content), me: String(data.sender) === String(patientId) };
+            setMessages(prev => [...prev, m]);
+            setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
+            return;
+          }
+        } catch (e) {
+          // not JSON, fallthrough to parse plain string
+        }
+
+        if (raw) {
+          // handle format like: "34: hello there" where 34 is doctor_id
+          const m = raw.match(/^\s*(\d+)\s*:\s*([\s\S]+)$/);
+          if (m) {
+            const senderId = m[1];
+            const content = m[2];
+            const msg: Msg = { id: String(Date.now()), text: String(content), me: String(senderId) === String(patientId) };
+            setMessages(prev => [...prev, msg]);
+            setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
+            return;
+          }
+
+          // fallback: append raw text
+          setMessages(prev => [...prev, { id: String(Date.now()), text: raw }]);
+          setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
+        }
+      };
+
+      ws.onerror = () => {};
+      ws.onclose = () => {};
+
+      return () => {
+        try { ws.close(); } catch (e) {}
+        wsRef.current = null;
+      };
+    } catch (e) {}
+  }, [patientId]);
+
   const send = () => {
     if (!text.trim()) return;
     const m: Msg = { id: String(Date.now()), text: text.trim(), me: true };
     setMessages(prev => [...prev, m]);
+    const payload = {
+      sender: String(patientId),
+      receiver: String(doctorId),
+      content: text.trim(),
+    };
     setText('');
-    setTimeout(() => {
-      setMessages(prev => [...prev, { id: String(Date.now()+1), text: 'Thanks — I will review and get back to you.' }]);
-    }, 800);
+    try {
+      const ws = wsRef.current;
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify(payload));
+      } else {
+        // fallback: simulate doctor reply when websocket unavailable
+        setTimeout(() => {
+          setMessages(prev => [...prev, { id: String(Date.now()+1), text: 'Thanks — I will review and get back to you.' }]);
+        }, 800);
+      }
+    } catch (e) {
+      setTimeout(() => {
+        setMessages(prev => [...prev, { id: String(Date.now()+1), text: 'Thanks — I will review and get back to you.' }]);
+      }, 800);
+    }
     setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 200);
   };
 

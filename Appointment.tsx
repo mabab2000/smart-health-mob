@@ -13,6 +13,7 @@ type AppointmentItem = {
   datetime: string;
   description: string;
   status: 'pending' | 'confirmed' | 'cancelled' | string;
+  doctor_id?: string | number | null;
 };
 
 export default function Appointment({ userId }: { userId?: number }) {
@@ -23,6 +24,7 @@ export default function Appointment({ userId }: { userId?: number }) {
       datetime: 'Tomorrow • 10:30 AM',
       description: 'Video call — 20 minutes',
       status: 'confirmed',
+      doctor_id: '33',
     },
   ]);
   const [showAdd, setShowAdd] = useState(false);
@@ -81,6 +83,7 @@ export default function Appointment({ userId }: { userId?: number }) {
             datetime: formatAppointmentDateTime(item.date, item.time),
             description: item.description || '',
             status: item.status || 'pending',
+            doctor_id: item.doctor_id || item.doctor?.id || item.doctorId || null,
           }));
           setAppointments(items);
         } else {
@@ -303,11 +306,25 @@ export default function Appointment({ userId }: { userId?: number }) {
 
         {/* Chat / Call full-screen flows */}
         <Modal visible={!!chatTarget} animationType="slide">
-          {chatTarget ? <Chat name={chatTarget.title} onClose={() => setChatTarget(null)} /> : null}
+          {chatTarget ? (
+            <Chat
+              name={chatTarget.title}
+              patientId={userId ?? ''}
+              doctorId={chatTarget.doctor_id ?? ''}
+              onClose={() => setChatTarget(null)}
+            />
+          ) : null}
         </Modal>
 
         <Modal visible={!!videoTarget} animationType="slide">
-          {videoTarget ? <VideoCall name={videoTarget.title} onEnd={() => setVideoTarget(null)} /> : null}
+          {videoTarget ? (
+            <VideoCall
+              name={videoTarget.title}
+              patientId={userId ?? ''}
+              doctorId={videoTarget.doctor_id ?? ''}
+              onEnd={() => setVideoTarget(null)}
+            />
+          ) : null}
         </Modal>
 
         <Modal visible={!!voiceTarget} animationType="slide">
