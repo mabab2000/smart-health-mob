@@ -1,7 +1,6 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { SafeAreaView as RNSSafeAreaView } from 'react-native-safe-area-context/lib/commonjs/SafeAreaView';
 import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
-import Prescription from './Prescription';
 import Settings from './Settings';
 import Profile from './Profile';
 import Appointment from './Appointment';
@@ -15,11 +14,36 @@ type Props = {
 };
 
 export default function Dashboard({ email, onLogout, name, avatarUri, userId }: Props) {
-  const [tab, setTab] = useState<'home' | 'appointments' | 'settings' | 'prescription' | 'profile'>('home');
-  const pendingCount = 3;
-  const waitingCount = 5;
+  const [tab, setTab] = useState<'home' | 'appointments' | 'settings' | 'profile'>('home');
+  const [appointmentStats, setAppointmentStats] = useState({ total: 0, today: 0, pending: 0 });
   const displayName = name || (email ? email.split('@')[0] : 'User');
   const avatar = avatarUri || `https://i.pravatar.cc/150?u=${encodeURIComponent(email || 'anon')}`;
+
+  useEffect(() => {
+    const fetchAppointmentStats = async () => {
+      if (!userId) return;
+      try {
+        const response = await fetch(`https://clinic-backend-s2lx.onrender.com/api/appointments/patient/${userId}`, {
+          method: 'GET',
+          headers: {
+            accept: 'application/json',
+          },
+        });
+        const data = await response.json();
+        if (response.ok && Array.isArray(data)) {
+          const todayKey = new Date().toISOString().split('T')[0];
+          const total = data.length;
+          const today = data.filter(item => (item?.date || '').split('T')[0] === todayKey).length;
+          const pending = data.filter(item => (item?.status || 'pending') === 'pending').length;
+          setAppointmentStats({ total, today, pending });
+        }
+      } catch (error) {
+        // Keep previous stats if request fails.
+      }
+    };
+
+    fetchAppointmentStats();
+  }, [userId]);
 
   return (
     <RNSSafeAreaView style={styles.safeArea}>
@@ -47,6 +71,23 @@ export default function Dashboard({ email, onLogout, name, avatarUri, userId }: 
                     <Text style={styles.notificationBadgeText}>2</Text>
                   </View>
                 </TouchableOpacity>
+              </View>
+            </View>
+
+            <View style={styles.statsCard}>
+              <View style={styles.statItem}>
+                <Text style={styles.statNumber}>{appointmentStats.total}</Text>
+                <Text style={styles.statLabel}>Total</Text>
+              </View>
+              <View style={styles.statDivider} />
+              <View style={styles.statItem}>
+                <Text style={styles.statNumber}>{appointmentStats.today}</Text>
+                <Text style={styles.statLabel}>Today</Text>
+              </View>
+              <View style={styles.statDivider} />
+              <View style={styles.statItem}>
+                <Text style={styles.statNumber}>{appointmentStats.pending}</Text>
+                <Text style={styles.statLabel}>Pending</Text>
               </View>
             </View>
 
@@ -83,7 +124,7 @@ export default function Dashboard({ email, onLogout, name, avatarUri, userId }: 
           )}
           {tab === 'appointments' && <Appointment userId={userId} />}
           {tab === 'settings' && <Settings email={email} onLogout={onLogout} />}
-          {tab === 'prescription' && <Prescription />}
+          {tab === 'profile' && <Profile />}
         </View>
 
         <View style={styles.bottomMenu}>
@@ -94,10 +135,6 @@ export default function Dashboard({ email, onLogout, name, avatarUri, userId }: 
           <TouchableOpacity style={[styles.tab, tab === 'appointments' && styles.tabActive]} onPress={() => setTab('appointments')}>
 
             <Text style={[styles.tabLabel, tab === 'appointments' && styles.tabLabelActive]}>Appointments</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={[styles.tab, tab === 'prescription' && styles.tabActive]} onPress={() => setTab('prescription')}>
-            
-            <Text style={[styles.tabLabel, tab === 'prescription' && styles.tabLabelActive]}>Prescription</Text>
           </TouchableOpacity>
           <TouchableOpacity style={[styles.tab, tab === 'settings' && styles.tabActive]} onPress={() => setTab('settings')}>
             
@@ -205,6 +242,39 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 10,
     fontWeight: '700',
+  },
+  statsCard: {
+    flexDirection: 'row',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 20,
+    justifyContent: 'space-around',
+    shadowColor: '#1E293B',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  statItem: {
+    alignItems: 'center',
+  },
+  statNumber: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#1E293B',
+    marginBottom: 4,
+  },
+  statLabel: {
+    fontSize: 12,
+    color: '#64748B',
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  statDivider: {
+    width: 1,
+    backgroundColor: '#E2E8F0',
   },
   statsContainer: {
     marginBottom: 20,

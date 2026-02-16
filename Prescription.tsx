@@ -1,48 +1,85 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, SafeAreaView, Alert, TouchableOpacity } from 'react-native';
 
-export default function Prescription() {
-  const latest = {
-    date: '2026-01-29',
-    summary: 'Headache, nausea, mild fever',
-    assessment: 'Likely viral — rest, hydration, symptomatic care',
-    recommendations: [
-      'Paracetamol 500mg as needed',
-      'Drink fluids and rest',
-      'Follow-up in 3 days if symptoms persist',
-    ],
-  };
+type PerceptionItem = {
+  id: number;
+  appointment_id: number;
+  title: string;
+  note: string;
+  created_at: string;
+};
+
+type Props = {
+  appointmentId?: string | number;
+  onClose?: () => void;
+};
+
+export default function Prescription({ appointmentId, onClose }: Props) {
+  const [loading, setLoading] = useState(false);
+  const [items, setItems] = useState<PerceptionItem[]>([]);
+
+  useEffect(() => {
+    const fetchPerceptions = async () => {
+      if (!appointmentId) {
+        setItems([]);
+        return;
+      }
+      setLoading(true);
+      try {
+        const response = await fetch(`https://clinic-backend-s2lx.onrender.com/api/perceptions/appointment/${appointmentId}`, {
+          method: 'GET',
+          headers: {
+            accept: 'application/json',
+          },
+        });
+        const data = await response.json();
+        if (response.ok && Array.isArray(data)) {
+          setItems(data);
+        } else {
+          Alert.alert('Error', data?.message || 'Failed to load perceptions');
+        }
+      } catch (error) {
+        Alert.alert('Error', 'Network error. Please try again.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPerceptions();
+  }, [appointmentId]);
 
   return (
     <SafeAreaView style={styles.safe}>
       <View style={styles.wrapper}>
-        <Text style={styles.pageTitle}>Prescription</Text>
-        <View style={styles.card}>
-          <View style={styles.cardHeader}>
-            <Text style={styles.cardTitle}>Health Insight</Text>
-            <Text style={styles.cardDate}>{latest.date}</Text>
-          </View>
-
-          <Text style={styles.sectionLabel}>Reported</Text>
-          <Text style={styles.sectionText}>{latest.summary}</Text>
-
-          <Text style={[styles.sectionLabel, { marginTop: 12 }]}>Assessment</Text>
-          <Text style={styles.sectionText}>{latest.assessment}</Text>
-
-          <Text style={[styles.sectionLabel, { marginTop: 12 }]}>Recommendations</Text>
-          {latest.recommendations.map((r, i) => (
-            <Text key={i} style={styles.bullet}>• {r}</Text>
-          ))}
-
-          <View style={styles.actionsRow}>
-            <TouchableOpacity style={styles.actionPrimary}>
-              <Text style={styles.actionPrimaryText}>View history</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.actionGhost}>
-              <Text style={styles.actionGhostText}>Share report</Text>
-            </TouchableOpacity>
-          </View>
+        <View style={styles.headerRow}>
+          <TouchableOpacity onPress={onClose} style={styles.backButton}>
+            <Text style={styles.backButtonText}>Back</Text>
+          </TouchableOpacity>
+          <Text style={styles.pageTitle}>Perceptions</Text>
         </View>
+
+        {loading ? (
+          <View style={styles.card}>
+            <Text style={styles.emptyText}>Loading perceptions...</Text>
+          </View>
+        ) : null}
+
+        {items.length === 0 && !loading ? (
+          <View style={styles.card}>
+            <Text style={styles.emptyText}>No perceptions found for this appointment.</Text>
+          </View>
+        ) : null}
+
+        {items.map(item => (
+          <View key={item.id} style={styles.card}>
+            <View style={styles.cardHeader}>
+              <Text style={styles.cardTitle}>{item.title}</Text>
+              <Text style={styles.cardDate}>{item.created_at.split('T')[0]}</Text>
+            </View>
+            <Text style={styles.sectionLabel}>Note</Text>
+            <Text style={styles.sectionText}>{item.note}</Text>
+          </View>
+        ))}
       </View>
     </SafeAreaView>
   );
@@ -56,6 +93,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: 20,
+    marginBottom: 16,
     shadowColor: '#1E293B',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.08,
@@ -67,17 +105,33 @@ const styles = StyleSheet.create({
   cardDate: { fontSize: 13, color: '#64748B' },
   sectionLabel: { fontSize: 14, fontWeight: '700', color: '#1E293B', marginTop: 6 },
   sectionText: { fontSize: 15, color: '#374151', marginTop: 6, lineHeight: 20 },
-  bullet: { fontSize: 14, color: '#374151', marginTop: 6, marginLeft: 6 },
-  actionsRow: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 16, gap: 12 },
-  actionPrimary: { backgroundColor: '#059669', paddingVertical: 12, paddingHorizontal: 16, borderRadius: 12 },
-  actionPrimaryText: { color: '#fff', fontWeight: '700' },
-  actionGhost: { borderWidth: 1, borderColor: '#E2E8F0', paddingVertical: 12, paddingHorizontal: 16, borderRadius: 12, marginLeft: 8 },
-  actionGhostText: { color: '#374151', fontWeight: '600' },
   pageTitle: {
     fontSize: 28,
     fontWeight: '900',
     color: '#1E293B',
-    alignSelf: 'flex-start',
     marginBottom: 12,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  backButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    backgroundColor: '#E2E8F0',
+    marginBottom: 12,
+  },
+  backButtonText: {
+    color: '#1E293B',
+    fontWeight: '700',
+    fontSize: 12,
+  },
+  emptyText: {
+    color: '#64748B',
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'center',
   },
 });

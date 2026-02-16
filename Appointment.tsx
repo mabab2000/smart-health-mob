@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Modal, TextInput, Platform, Alert } from 'react-native';
+import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { SafeAreaView as RNSSafeAreaView } from 'react-native-safe-area-context/lib/commonjs/SafeAreaView';
 import Chat from './Chat';
+import Prescription from './Prescription';
 import VideoCall from './VideoCall';
 import VoiceCall from './VoiceCall';
 
@@ -9,27 +11,102 @@ type AppointmentItem = {
   id: string;
   title: string;
   datetime: string;
-  type: string;
-  notes?: string;
+  description: string;
+  status: 'pending' | 'confirmed' | 'cancelled' | string;
 };
 
 export default function Appointment({ userId }: { userId?: number }) {
   const [appointments, setAppointments] = useState<AppointmentItem[]>([
-    { id: '1', title: 'Dr. Emily Carter', datetime: 'Tomorrow • 10:30 AM', type: 'Teleconsult', notes: 'Video call — 20 minutes' },
-   
+    {
+      id: '1',
+      title: 'Dr. Emily Carter',
+      datetime: 'Tomorrow • 10:30 AM',
+      description: 'Video call — 20 minutes',
+      status: 'confirmed',
+    },
   ]);
   const [showAdd, setShowAdd] = useState(false);
-  const [title, setTitle] = useState('');
-  const [datetime, setDatetime] = useState('');
-  const [atype, setAtype] = useState('Teleconsult');
-  const [notes, setNotes] = useState('');
+  const [date, setDate] = useState('');
+  const [time, setTime] = useState('');
+  const [description, setDescription] = useState('');
+  const [dateValue, setDateValue] = useState(new Date());
+  const [timeValue, setTimeValue] = useState(new Date());
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showTimePicker, setShowTimePicker] = useState(false);
+  const [loadingAppointments, setLoadingAppointments] = useState(false);
+
+  const formatAppointmentDateTime = (rawDate?: string, rawTime?: string) => {
+    const formattedDate = rawDate ? rawDate.split('T')[0] : 'Unknown date';
+    const formattedTime = rawTime ? rawTime.slice(0, 8) : 'Unknown time';
+    return `${formattedDate} • ${formattedTime}`;
+  };
+
+  const formatDate = (value: Date) => value.toISOString().split('T')[0];
+  const formatTime = (value: Date) => value.toISOString().split('T')[1];
+
+  const handleDateChange = (event: DateTimePickerEvent, selected?: Date) => {
+    if (Platform.OS !== 'ios') {
+      setShowDatePicker(false);
+    }
+    if (event.type === 'dismissed' || !selected) return;
+    setDateValue(selected);
+    setDate(formatDate(selected));
+  };
+
+  const handleTimeChange = (event: DateTimePickerEvent, selected?: Date) => {
+    if (Platform.OS !== 'ios') {
+      setShowTimePicker(false);
+    }
+    if (event.type === 'dismissed' || !selected) return;
+    setTimeValue(selected);
+    setTime(formatTime(selected));
+  };
+
+  useEffect(() => {
+    const fetchAppointments = async () => {
+      if (!userId) return;
+      setLoadingAppointments(true);
+      try {
+        const response = await fetch(`https://clinic-backend-s2lx.onrender.com/api/appointments/patient/${userId}`, {
+          method: 'GET',
+          headers: {
+            accept: 'application/json',
+          },
+        });
+        const data = await response.json();
+        if (response.ok && Array.isArray(data)) {
+          const items: AppointmentItem[] = data.map(item => ({
+            id: String(item.id),
+            title: item.doctor_name || 'Doctor pending',
+            datetime: formatAppointmentDateTime(item.date, item.time),
+            description: item.description || '',
+            status: item.status || 'pending',
+          }));
+          setAppointments(items);
+        } else {
+          Alert.alert('Error', data?.message || 'Failed to load appointments');
+        }
+      } catch (error) {
+        Alert.alert('Error', 'Network error. Please try again.');
+      } finally {
+        setLoadingAppointments(false);
+      }
+    };
+
+    fetchAppointments();
+  }, [userId]);
 
   const handleAdd = async () => {
-    if (!title || !datetime) return;
+    if (!date || !time || !description) {
+      Alert.alert('Error', 'Please fill in date, time, and description');
+      return;
+    }
     if (!userId) {
       Alert.alert('Error', 'User not logged in');
       return;
     }
+
+    const normalizedTime = time.trim().endsWith('Z') ? time.trim() : `${time.trim()}Z`;
 
     try {
       const response = await fetch('https://clinic-backend-s2lx.onrender.com/api/appointments/t', {
@@ -40,25 +117,29 @@ export default function Appointment({ userId }: { userId?: number }) {
         },
         body: JSON.stringify({
           patient_id: userId,
-          date: datetime.split(' ')[0] || datetime,
-          time: new Date().toISOString(),
-          description: notes || atype,
+          date,
+          time: normalizedTime,
+          description,
         }),
       });
 
       const data = await response.json();
 
       if (response.ok) {
+        const responseDate = typeof data.date === 'string' ? data.date.split('T')[0] : date;
+        const responseTime = typeof data.time === 'string' ? data.time.slice(0, 8) : time;
         const item: AppointmentItem = { 
           id: String(data.id), 
-          title, 
-          datetime, 
-          type: atype, 
-          notes 
+          title: data.doctor_name || 'Doctor pending',
+          datetime: formatAppointmentDateTime(responseDate, responseTime),
+          description: data.description || description,
+          status: data.status || 'pending',
         };
         setAppointments(prev => [item, ...prev]);
         setShowAdd(false);
-        setTitle(''); setDatetime(''); setAtype('Teleconsult'); setNotes('');
+        setDate(''); setTime(''); setDescription('');
+        setDateValue(new Date());
+        setTimeValue(new Date());
         Alert.alert('Success', 'Appointment created successfully');
       } else {
         Alert.alert('Error', data.message || 'Failed to create appointment');
@@ -70,10 +151,12 @@ export default function Appointment({ userId }: { userId?: number }) {
   const [videoTarget, setVideoTarget] = useState<AppointmentItem | null>(null);
   const [voiceTarget, setVoiceTarget] = useState<AppointmentItem | null>(null);
   const [chatTarget, setChatTarget] = useState<AppointmentItem | null>(null);
+  const [perceptionTarget, setPerceptionTarget] = useState<AppointmentItem | null>(null);
 
   const startVideo = (a: AppointmentItem) => setVideoTarget(a);
   const startVoice = (a: AppointmentItem) => setVoiceTarget(a);
   const startChat = (a: AppointmentItem) => setChatTarget(a);
+  const openPerceptions = (a: AppointmentItem) => setPerceptionTarget(a);
 
   return (
     <RNSSafeAreaView style={styles.safeArea}>
@@ -83,22 +166,11 @@ export default function Appointment({ userId }: { userId?: number }) {
           <Text style={styles.pageSubtitle}>Manage your healthcare consultations</Text>
         </View>
 
-        <View style={styles.statsCard}>
-          <View style={styles.statItem}>
-            <Text style={styles.statNumber}>{appointments.length}</Text>
-            <Text style={styles.statLabel}>Total</Text>
+        {loadingAppointments ? (
+          <View style={styles.loadingCard}>
+            <Text style={styles.loadingText}>Loading appointments...</Text>
           </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statItem}>
-            <Text style={styles.statNumber}>2</Text>
-            <Text style={styles.statLabel}>Today</Text>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statItem}>
-            <Text style={styles.statNumber}>1</Text>
-            <Text style={styles.statLabel}>Upcoming</Text>
-          </View>
-        </View>
+        ) : null}
 
         {appointments.map(a => (
           <View key={a.id} style={styles.appCard}>
@@ -110,9 +182,27 @@ export default function Appointment({ userId }: { userId?: number }) {
                 <View style={styles.appDetails}>
                   <Text style={styles.appTitle}>{a.title}</Text>
                   <Text style={styles.appTime}>{a.datetime}</Text>
-                  <View style={[styles.typeBadge, a.type === 'Teleconsult' ? styles.teleconsultBadge : styles.inPersonBadge]}>
-                    <Text style={[styles.typeText, a.type === 'Teleconsult' ? styles.teleconsultText : styles.inPersonText]}>
-                      {a.type === 'Teleconsult' ? ' Teleconsult' : ' In-person'}
+                  <View
+                    style={[
+                      styles.statusBadge,
+                      a.status === 'confirmed'
+                        ? styles.statusConfirmed
+                        : a.status === 'cancelled'
+                        ? styles.statusCancelled
+                        : styles.statusPending,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.statusText,
+                        a.status === 'confirmed'
+                          ? styles.statusConfirmedText
+                          : a.status === 'cancelled'
+                          ? styles.statusCancelledText
+                          : styles.statusPendingText,
+                      ]}
+                    >
+                      {a.status}
                     </Text>
                   </View>
                 </View>
@@ -122,12 +212,16 @@ export default function Appointment({ userId }: { userId?: number }) {
               </TouchableOpacity>
             </View>
             
-            {a.notes ? (
+            {a.description ? (
               <View style={styles.noteContainer}>
-                <Text style={styles.noteLabel}>Notes:</Text>
-                <Text style={styles.appNote}>{a.notes}</Text>
+                <Text style={styles.noteLabel}>Description:</Text>
+                <Text style={styles.appNote}>{a.description}</Text>
               </View>
             ) : null}
+
+            <TouchableOpacity style={styles.perceptionLink} onPress={() => openPerceptions(a)}>
+              <Text style={styles.perceptionLinkText}>View perceptions</Text>
+            </TouchableOpacity>
             
             <View style={styles.actionRow}>
               <TouchableOpacity 
@@ -164,10 +258,36 @@ export default function Appointment({ userId }: { userId?: number }) {
           <View style={styles.modalOverlay}>
             <View style={styles.modalCard}>
               <Text style={styles.modalTitle}>New appointment</Text>
-              <TextInput placeholder="Doctor / Clinic" value={title} onChangeText={setTitle} style={styles.input} />
-              <TextInput placeholder="Date & time" value={datetime} onChangeText={setDatetime} style={styles.input} />
-              <TextInput placeholder="Type (Teleconsult/In-person)" value={atype} onChangeText={setAtype} style={styles.input} />
-              <TextInput placeholder="Notes" value={notes} onChangeText={setNotes} style={[styles.input, { height: 80 }]} multiline />
+              <TouchableOpacity style={styles.pickerField} onPress={() => setShowDatePicker(true)} activeOpacity={0.8}>
+                <Text style={styles.pickerLabel}>Date</Text>
+                <Text style={date ? styles.pickerValue : styles.pickerPlaceholder}>
+                  {date || 'Pick a date'}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.pickerField} onPress={() => setShowTimePicker(true)} activeOpacity={0.8}>
+                <Text style={styles.pickerLabel}>Time</Text>
+                <Text style={time ? styles.pickerValue : styles.pickerPlaceholder}>
+                  {time || 'Pick a time'}
+                </Text>
+              </TouchableOpacity>
+              {showDatePicker ? (
+                <DateTimePicker
+                  value={dateValue}
+                  mode="date"
+                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  onChange={handleDateChange}
+                />
+              ) : null}
+              {showTimePicker ? (
+                <DateTimePicker
+                  value={timeValue}
+                  mode="time"
+                  is24Hour
+                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  onChange={handleTimeChange}
+                />
+              ) : null}
+              <TextInput placeholder="Description" value={description} onChangeText={setDescription} style={[styles.input, { height: 100 }]} multiline />
 
               <View style={styles.modalRow}>
                 <TouchableOpacity onPress={() => setShowAdd(false)} style={[styles.modalBtn, styles.modalCancel]}>
@@ -192,6 +312,12 @@ export default function Appointment({ userId }: { userId?: number }) {
 
         <Modal visible={!!voiceTarget} animationType="slide">
           {voiceTarget ? <VoiceCall name={voiceTarget.title} onEnd={() => setVoiceTarget(null)} /> : null}
+        </Modal>
+
+        <Modal visible={!!perceptionTarget} animationType="slide">
+          {perceptionTarget ? (
+            <Prescription appointmentId={perceptionTarget.id} onClose={() => setPerceptionTarget(null)} />
+          ) : null}
         </Modal>
       </View>
     </RNSSafeAreaView>
@@ -221,38 +347,22 @@ const styles = StyleSheet.create({
     color: '#64748B',
     fontWeight: '500',
   },
-  statsCard: {
-    flexDirection: 'row',
+  loadingCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 20,
-    justifyContent: 'space-around',
-    shadowColor: '#1E293B',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 4,
-  },
-  statItem: {
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
     alignItems: 'center',
+    shadowColor: '#1E293B',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 3,
   },
-  statNumber: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: '#1E293B',
-    marginBottom: 4,
-  },
-  statLabel: {
-    fontSize: 12,
+  loadingText: {
     color: '#64748B',
+    fontSize: 14,
     fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  statDivider: {
-    width: 1,
-    backgroundColor: '#E2E8F0',
   },
   appCard: { 
     backgroundColor: '#FFFFFF', 
@@ -303,27 +413,33 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginBottom: 8,
   },
-  typeBadge: {
+  statusBadge: {
     alignSelf: 'flex-start',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 8,
   },
-  teleconsultBadge: {
-    backgroundColor: '#DBEAFE',
+  statusPending: {
+    backgroundColor: '#FEF3C7',
   },
-  inPersonBadge: {
+  statusConfirmed: {
     backgroundColor: '#D1FAE5',
   },
-  typeText: {
+  statusCancelled: {
+    backgroundColor: '#FEE2E2',
+  },
+  statusText: {
     fontSize: 12,
     fontWeight: '600',
   },
-  teleconsultText: {
-    color: '#1E40AF',
+  statusPendingText: {
+    color: '#B45309',
   },
-  inPersonText: {
+  statusConfirmedText: {
     color: '#047857',
+  },
+  statusCancelledText: {
+    color: '#B91C1C',
   },
   moreButton: {
     padding: 4,
@@ -348,6 +464,19 @@ const styles = StyleSheet.create({
     color: '#374151', 
     fontSize: 14,
     lineHeight: 20,
+  },
+  perceptionLink: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
+    backgroundColor: '#EEF2FF',
+    marginBottom: 10,
+  },
+  perceptionLinkText: {
+    color: '#4338CA',
+    fontSize: 12,
+    fontWeight: '700',
   },
   actionRow: { 
     flexDirection: 'row', 
@@ -431,6 +560,33 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     fontSize: 16,
     backgroundColor: '#FAFBFC',
+  },
+  pickerField: {
+    borderWidth: 2,
+    borderColor: '#E2E8F0',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    marginBottom: 12,
+    backgroundColor: '#FAFBFC',
+  },
+  pickerLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748B',
+    marginBottom: 6,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+  pickerValue: {
+    fontSize: 16,
+    color: '#0F172A',
+    fontWeight: '600',
+  },
+  pickerPlaceholder: {
+    fontSize: 16,
+    color: '#94A3B8',
+    fontWeight: '500',
   },
   modalRow: { 
     flexDirection: 'row', 
