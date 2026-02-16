@@ -261,4 +261,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
   },
+  buttonText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
 });
