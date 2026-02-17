@@ -1,10 +1,112 @@
-import React from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, Image, TouchableOpacity, TextInput, Alert, Platform } from 'react-native';
+// Use require to avoid TS errors when type declarations aren't available
+// (Consider installing proper types or adding a declaration file)
+const { launchImageLibrary } = require('react-native-image-picker');
 import { SafeAreaView as RNSSafeAreaView } from 'react-native-safe-area-context/lib/commonjs/SafeAreaView';
 
-export default function Profile({ name, email, avatarUri, onBack, onLogout }:
-  { name?: string; email?: string; avatarUri?: string; onBack?: () => void; onLogout?: () => void }) {
+interface Patient {
+  user_id?: number;
+  dob?: string;
+  gender?: string;
+  phone?: string;
+  blood_group?: string;
+  allergies?: string[];
+  chronic_conditions?: string[];
+  current_medications?: string[];
+  emergency_contact_name?: string;
+  address?: string;
+}
+
+export default function Profile({ name, email, avatarUri, userId, onBack, onLogout, patient, onSave }:
+  { name?: string; email?: string; avatarUri?: string; userId?: number; onBack?: () => void; onLogout?: () => void; patient?: Patient; onSave?: (p: Patient|undefined)=>void }) {
   const displayName = name || (email ? email.split('@')[0] : 'User');
+  const [editing, setEditing] = useState(false);
+  const [localPatient, setLocalPatient] = useState<Patient | undefined>(patient);
+  const [localAvatar, setLocalAvatar] = useState<string|undefined>(avatarUri);
+
+  useEffect(() => setLocalPatient(patient), [patient]);
+
+  const arrayToString = (arr?: string[]) => (arr && arr.length ? arr.join(', ') : '');
+  const stringToArray = (s?: string) => (s ? s.split(',').map(i => i.trim()).filter(Boolean) : []);
+
+  function startEdit() { setLocalPatient(patient ? { ...patient } : {}); setEditing(true); }
+  function cancelEdit() { setLocalPatient(patient); setEditing(false); }
+  function saveEdit() { if (onSave) onSave(localPatient); setEditing(false); }
+
+  async function fetchPreview(path?: string) {
+    if (!path) return;
+    const endpoint = `https://clinic-backend-s2lx.onrender.com/api/auth/profile-image/preview?path=${encodeURIComponent(path)}`;
+    try {
+      const resp = await fetch(endpoint, { method: 'GET', headers: { accept: 'application/json' } });
+      const json = await resp.json();
+      if (resp.ok && json?.preview_url) {
+        setLocalAvatar(json.preview_url);
+      } else {
+        console.warn('preview fetch failed', resp.status, json);
+      }
+    } catch (err) {
+      console.warn('fetchPreview error', err);
+    }
+  }
+
+  useEffect(() => {
+    if (patient?.image_path) fetchPreview(patient.image_path);
+  }, [patient?.image_path]);
+
+  async function uploadProfileImage(uri?: string, name?: string, type?: string) {
+    if (!uri) return;
+    const uid = userId ?? localPatient?.user_id;
+    if (uid === undefined) {
+      console.warn('No user id provided for image upload');
+      Alert.alert('Upload failed', 'No user id provided');
+      return;
+    }
+
+    // Normalize uri for Android content URIs if needed
+    let fileUri = uri;
+    if (Platform.OS === 'android' && !fileUri.startsWith('file://') && fileUri.startsWith('/')) {
+      fileUri = 'file://' + fileUri;
+    }
+
+    const form = new FormData();
+    form.append('user_id', String(uid));
+    form.append('image', { uri: fileUri, name: name || 'photo.jpg', type: type || 'image/jpeg' } as any);
+
+    try {
+      const resp = await fetch('https://clinic-backend-s2lx.onrender.com/api/auth/profile-image', {
+        method: 'POST',
+        body: form,
+      });
+      const json = await resp.json();
+      if (resp.ok && json?.profile?.image_path) {
+        // ask the backend for a signed preview URL and set that as avatar
+        setLocalPatient(p => ({ ...(p||{}), image_path: json.profile.image_path }));
+        await fetchPreview(json.profile.image_path);
+        Alert.alert('Success', json.message || 'Profile image saved');
+      } else {
+        console.warn('upload failed', resp.status, json);
+        Alert.alert('Upload failed', json?.message || `Server returned ${resp.status}`);
+      }
+    } catch (err) {
+      console.warn('uploadProfileImage error', err);
+      Alert.alert('Upload error', String(err));
+    }
+  }
+
+  function pickImageAndUpload() {
+    interface ImageAsset { uri?: string; fileName?: string; }
+    interface LaunchResponse { didCancel?: boolean; assets?: ImageAsset[]; }
+
+    launchImageLibrary({ mediaType: 'photo', quality: 0.8 }, (res: LaunchResponse) => {
+      if (res.didCancel) return;
+      const asset = res.assets && res.assets[0];
+      if (!asset || !asset.uri) return;
+      // use local uri for preview and upload
+      setLocalAvatar(asset.uri);
+      uploadProfileImage(asset.uri, asset.fileName || 'photo.jpg');
+    });
+  }
 
   return (
     <RNSSafeAreaView style={styles.safe}>
@@ -19,7 +121,10 @@ export default function Profile({ name, email, avatarUri, onBack, onLogout }:
 
       <View style={styles.container}>
         <View style={styles.profileCard}>
-          <Image source={{ uri: avatarUri || `https://i.pravatar.cc/150?u=${encodeURIComponent(email||'anon')}` }} style={styles.avatar} />
+          <Image source={{ uri: localAvatar || avatarUri || `https://i.pravatar.cc/150?u=${encodeURIComponent(email||'anon')}` }} style={styles.avatar} />
+          <TouchableOpacity style={styles.changeAvatar} onPress={pickImageAndUpload}>
+            <Text style={styles.changeAvatarText}>Change Avatar</Text>
+          </TouchableOpacity>
           <Text style={styles.name}>{displayName}</Text>
           <Text style={styles.email}>{email || 'No email'}</Text>
           <View style={styles.statusContainer}>
@@ -32,33 +137,88 @@ export default function Profile({ name, email, avatarUri, onBack, onLogout }:
           <Text style={styles.sectionTitle}>Personal Information</Text>
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Date of Birth</Text>
-            <Text style={styles.infoValue}>January 15, 1990</Text>
+            {editing ? (
+              <TextInput style={styles.input} value={localPatient?.dob || ''} onChangeText={t => setLocalPatient({ ...(localPatient||{}), dob: t })} placeholder="YYYY-MM-DD" />
+            ) : (
+              <Text style={styles.infoValue}>{patient?.dob ? new Date(patient.dob).toLocaleDateString() : 'Not set'}</Text>
+            )}
           </View>
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Blood Type</Text>
-            <Text style={styles.infoValue}>A+</Text>
+            {editing ? (
+              <TextInput style={styles.input} value={localPatient?.blood_group || ''} onChangeText={t => setLocalPatient({ ...(localPatient||{}), blood_group: t })} />
+            ) : (
+              <Text style={styles.infoValue}>{patient?.blood_group || 'Not set'}</Text>
+            )}
           </View>
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Emergency Contact</Text>
-            <Text style={styles.infoValue}>+1 (555) 987-6543</Text>
+            {editing ? (
+              <TextInput style={styles.input} value={localPatient?.emergency_contact_name || ''} onChangeText={t => setLocalPatient({ ...(localPatient||{}), emergency_contact_name: t })} />
+            ) : (
+              <Text style={styles.infoValue}>{patient?.emergency_contact_name || 'Not set'}</Text>
+            )}
+          </View>
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Phone</Text>
+            {editing ? (
+              <TextInput style={styles.input} value={localPatient?.phone || ''} onChangeText={t => setLocalPatient({ ...(localPatient||{}), phone: t })} />
+            ) : (
+              <Text style={styles.infoValue}>{patient?.phone || 'Not set'}</Text>
+            )}
+          </View>
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Address</Text>
+            {editing ? (
+              <TextInput style={styles.input} value={localPatient?.address || ''} onChangeText={t => setLocalPatient({ ...(localPatient||{}), address: t })} />
+            ) : (
+              <Text style={styles.infoValue}>{patient?.address || 'Not set'}</Text>
+            )}
           </View>
         </View>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Health Information</Text>
           <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Insurance Provider</Text>
-            <Text style={styles.infoValue}>HealthCare Plus</Text>
+            <Text style={styles.infoLabel}>Allergies</Text>
+            {editing ? (
+              <TextInput style={styles.input} value={arrayToString(localPatient?.allergies)} onChangeText={t => setLocalPatient({ ...(localPatient||{}), allergies: stringToArray(t) })} placeholder="comma separated" />
+            ) : (
+              <Text style={styles.infoValue}>{(patient?.allergies && patient.allergies.length) ? patient.allergies.join(', ') : 'None'}</Text>
+            )}
           </View>
           <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Primary Doctor</Text>
-            <Text style={styles.infoValue}>Dr. Sarah Wilson</Text>
+            <Text style={styles.infoLabel}>Chronic Conditions</Text>
+            {editing ? (
+              <TextInput style={styles.input} value={arrayToString(localPatient?.chronic_conditions)} onChangeText={t => setLocalPatient({ ...(localPatient||{}), chronic_conditions: stringToArray(t) })} placeholder="comma separated" />
+            ) : (
+              <Text style={styles.infoValue}>{(patient?.chronic_conditions && patient.chronic_conditions.length) ? patient.chronic_conditions.join(', ') : 'None'}</Text>
+            )}
+          </View>
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Current Medications</Text>
+            {editing ? (
+              <TextInput style={styles.input} value={arrayToString(localPatient?.current_medications)} onChangeText={t => setLocalPatient({ ...(localPatient||{}), current_medications: stringToArray(t) })} placeholder="comma separated" />
+            ) : (
+              <Text style={styles.infoValue}>{(patient?.current_medications && patient.current_medications.length) ? patient.current_medications.join(', ') : 'None'}</Text>
+            )}
           </View>
         </View>
 
-        <TouchableOpacity style={styles.editButton}>
-          <Text style={styles.editButtonText}>Edit Profile</Text>
-        </TouchableOpacity>
+        {!editing ? (
+          <TouchableOpacity style={styles.editButton} onPress={startEdit}>
+            <Text style={styles.editButtonText}>Edit Profile</Text>
+          </TouchableOpacity>
+        ) : (
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+            <TouchableOpacity style={styles.editButton} onPress={saveEdit}>
+              <Text style={styles.editButtonText}>Save</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.cancelButton} onPress={cancelEdit}>
+              <Text style={styles.cancelButtonText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
         <TouchableOpacity style={styles.logout} onPress={() => onLogout && onLogout()}>
           <Text style={styles.logoutText}>Sign out</Text>
@@ -222,6 +382,42 @@ const styles = StyleSheet.create({
   editButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
+    fontWeight: '700',
+  },
+  input: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderRadius: 8,
+    textAlign: 'right',
+  },
+  cancelButton: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginLeft: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  cancelButtonText: {
+    color: '#1E293B',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  changeAvatar: {
+    marginTop: 8,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  changeAvatarText: {
+    color: '#059669',
     fontWeight: '700',
   },
   logout: {
