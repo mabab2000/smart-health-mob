@@ -1,8 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity, TextInput, Alert, Platform } from 'react-native';
-// Use require to avoid TS errors when type declarations aren't available
-// (Consider installing proper types or adding a declaration file)
-const { launchImageLibrary } = require('react-native-image-picker');
+import * as ImagePicker from 'expo-image-picker';
 import { SafeAreaView as RNSSafeAreaView } from 'react-native-safe-area-context/lib/commonjs/SafeAreaView';
 
 interface Patient {
@@ -16,6 +14,7 @@ interface Patient {
   current_medications?: string[];
   emergency_contact_name?: string;
   address?: string;
+  image_path?: string;
 }
 
 export default function Profile({ name, email, avatarUri, userId, onBack, onLogout, patient, onSave }:
@@ -26,6 +25,7 @@ export default function Profile({ name, email, avatarUri, userId, onBack, onLogo
   const [localAvatar, setLocalAvatar] = useState<string|undefined>(avatarUri);
 
   useEffect(() => setLocalPatient(patient), [patient]);
+  useEffect(() => setLocalAvatar(avatarUri), [avatarUri]);
 
   const arrayToString = (arr?: string[]) => (arr && arr.length ? arr.join(', ') : '');
   const stringToArray = (s?: string) => (s ? s.split(',').map(i => i.trim()).filter(Boolean) : []);
@@ -34,9 +34,9 @@ export default function Profile({ name, email, avatarUri, userId, onBack, onLogo
   function cancelEdit() { setLocalPatient(patient); setEditing(false); }
   function saveEdit() { if (onSave) onSave(localPatient); setEditing(false); }
 
-  async function fetchPreview(path?: string) {
-    if (!path) return;
-    const endpoint = `https://clinic-backend-s2lx.onrender.com/api/auth/profile-image/preview?path=${encodeURIComponent(path)}`;
+  async function fetchPreview(userId?: number) {
+    if (userId === undefined) return;
+    const endpoint = `https://clinic-backend-s2lx.onrender.com/api/auth/profile-image/preview?user_id=${userId}`;
     try {
       const resp = await fetch(endpoint, { method: 'GET', headers: { accept: 'application/json' } });
       const json = await resp.json();
@@ -51,8 +51,9 @@ export default function Profile({ name, email, avatarUri, userId, onBack, onLogo
   }
 
   useEffect(() => {
-    if (patient?.image_path) fetchPreview(patient.image_path);
-  }, [patient?.image_path]);
+    const uid = userId ?? patient?.user_id;
+    if (uid !== undefined) fetchPreview(uid);
+  }, [userId, patient?.user_id]);
 
   async function uploadProfileImage(uri?: string, name?: string, type?: string) {
     if (!uri) return;
@@ -81,8 +82,9 @@ export default function Profile({ name, email, avatarUri, userId, onBack, onLogo
       const json = await resp.json();
       if (resp.ok && json?.profile?.image_path) {
         // ask the backend for a signed preview URL and set that as avatar
+        const uid = userId ?? localPatient?.user_id;
         setLocalPatient(p => ({ ...(p||{}), image_path: json.profile.image_path }));
-        await fetchPreview(json.profile.image_path);
+        if (uid !== undefined) await fetchPreview(uid);
         Alert.alert('Success', json.message || 'Profile image saved');
       } else {
         console.warn('upload failed', resp.status, json);
@@ -94,18 +96,30 @@ export default function Profile({ name, email, avatarUri, userId, onBack, onLogo
     }
   }
 
-  function pickImageAndUpload() {
-    interface ImageAsset { uri?: string; fileName?: string; }
-    interface LaunchResponse { didCancel?: boolean; assets?: ImageAsset[]; }
+  async function pickImageAndUpload() {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permissions required', 'Permission to access the photo library is required.');
+      return;
+    }
 
-    launchImageLibrary({ mediaType: 'photo', quality: 0.8 }, (res: LaunchResponse) => {
-      if (res.didCancel) return;
-      const asset = res.assets && res.assets[0];
-      if (!asset || !asset.uri) return;
-      // use local uri for preview and upload
-      setLocalAvatar(asset.uri);
-      uploadProfileImage(asset.uri, asset.fileName || 'photo.jpg');
-    });
+    try {
+      const res = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        quality: 0.8,
+        allowsEditing: false,
+      });
+      // Old API returned { cancelled, uri }, newer returns { cancelled, assets: [{ uri }] }
+      const cancelled = (res as any).cancelled === true;
+      if (cancelled) return;
+      const uri = (res as any).assets?.[0]?.uri || (res as any).uri;
+      if (!uri) return;
+      setLocalAvatar(uri);
+      const name = uri.split('/').pop() || 'photo.jpg';
+      uploadProfileImage(uri, name, 'image/jpeg');
+    } catch (err) {
+      console.warn('ImagePicker error', err);
+    }
   }
 
   return (

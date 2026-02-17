@@ -16,8 +16,25 @@ type Props = {
 export default function Dashboard({ email, onLogout, name, avatarUri, userId }: Props) {
   const [tab, setTab] = useState<'home' | 'appointments' | 'settings' | 'profile'>('home');
   const [appointmentStats, setAppointmentStats] = useState({ total: 0, today: 0, pending: 0 });
+  const [profileImage, setProfileImage] = useState<string | undefined>(avatarUri);
   const displayName = name || (email ? email.split('@')[0] : 'User');
-  const avatar = avatarUri || `https://i.pravatar.cc/150?u=${encodeURIComponent(email || 'anon')}`;
+  const avatar = profileImage || `https://i.pravatar.cc/150?u=${encodeURIComponent(email || 'anon')}`;
+
+  const fetchProfileImage = async () => {
+    if (!userId) return;
+    try {
+      const response = await fetch(`https://clinic-backend-s2lx.onrender.com/api/auth/profile-image/preview?user_id=${userId}`, {
+        method: 'GET',
+        headers: { accept: 'application/json' },
+      });
+      const data = await response.json();
+      if (response.ok && data?.preview_url) {
+        setProfileImage(data.preview_url);
+      }
+    } catch (error) {
+      console.warn('Failed to fetch profile image:', error);
+    }
+  };
 
   useEffect(() => {
     const fetchAppointmentStats = async () => {
@@ -43,6 +60,7 @@ export default function Dashboard({ email, onLogout, name, avatarUri, userId }: 
     };
 
     fetchAppointmentStats();
+    fetchProfileImage();
   }, [userId]);
 
   return (
@@ -124,7 +142,7 @@ export default function Dashboard({ email, onLogout, name, avatarUri, userId }: 
           )}
           {tab === 'appointments' && <Appointment userId={userId} />}
           {tab === 'settings' && <Settings email={email} onLogout={onLogout} />}
-          {tab === 'profile' && <Profile />}
+          {tab === 'profile' && <Profile name={name} email={email} avatarUri={profileImage} userId={userId} onBack={() => setTab('home')} onLogout={onLogout} onSave={() => { fetchProfileImage?.(); }} />}
         </View>
 
         <View style={styles.bottomMenu}>
