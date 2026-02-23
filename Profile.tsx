@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, TextInput, Alert, Platform } from 'react-native';
+import { View, Text, StyleSheet, Image, TouchableOpacity, TextInput, Alert, Platform, ScrollView } from 'react-native';
+import { scale } from './utils/scale';
 import * as ImagePicker from 'expo-image-picker';
 import { SafeAreaView as RNSSafeAreaView } from 'react-native-safe-area-context/lib/commonjs/SafeAreaView';
 
@@ -133,7 +134,7 @@ export default function Profile({ name, email, avatarUri, userId, onBack, onLogo
         <View style={styles.headerSpacer} />
       </View>
 
-      <View style={styles.container}>
+      <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 40 }}>
         <View style={styles.profileCard}>
           <Image source={{ uri: localAvatar || avatarUri || `https://i.pravatar.cc/150?u=${encodeURIComponent(email||'anon')}` }} style={styles.avatar} />
           <TouchableOpacity style={styles.changeAvatar} onPress={pickImageAndUpload}>
@@ -237,7 +238,7 @@ export default function Profile({ name, email, avatarUri, userId, onBack, onLogo
         <TouchableOpacity style={styles.logout} onPress={() => onLogout && onLogout()}>
           <Text style={styles.logoutText}>Sign out</Text>
         </TouchableOpacity>
-      </View>
+      </ScrollView>
     </RNSSafeAreaView>
   );
 }
@@ -264,32 +265,32 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   backIcon: {
-    fontSize: 18,
-    color: '#059669',
-    marginRight: 4,
+    fontSize: scale(16),
+    color: '#0b3d91',
+    marginRight: scale(4),
     fontWeight: '600',
   },
   backText: {
-    color: '#059669',
-    fontSize: 16,
+    color: '#0b3d91',
+    fontSize: scale(14),
     fontWeight: '600',
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: scale(16),
     fontWeight: '700',
     color: '#1E293B',
   },
   headerSpacer: {
-    width: 60, // Balance the back button
+    width: scale(56), // Balance the back button
   },
   container: {
     flex: 1,
-    padding: 16,
+    padding: scale(12),
   },
   profileCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 24,
+    borderRadius: scale(16),
+    padding: scale(18),
     alignItems: 'center',
     marginBottom: 20,
     shadowColor: '#1E293B',
@@ -299,55 +300,55 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   avatar: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    marginBottom: 16,
+    width: scale(80),
+    height: scale(80),
+    borderRadius: scale(40),
+    marginBottom: scale(12),
     backgroundColor: '#E5E7EB',
-    borderWidth: 4,
+    borderWidth: scale(4),
     borderColor: '#FFFFFF',
-    shadowColor: '#059669',
+    shadowColor: '#0b3d91',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
     shadowRadius: 8,
     elevation: 4,
   },
   name: {
-    fontSize: 24,
+    fontSize: scale(20),
     fontWeight: '700',
     color: '#1E293B',
-    marginBottom: 4,
+    marginBottom: scale(4),
   },
   email: {
     color: '#64748B',
-    fontSize: 16,
-    marginBottom: 12,
+    fontSize: scale(14),
+    marginBottom: scale(10),
   },
   statusContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#D1FAE5',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
+    paddingHorizontal: scale(10),
+    paddingVertical: scale(6),
+    borderRadius: scale(16),
   },
   statusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: scale(6),
+    height: scale(6),
+    borderRadius: scale(3),
     backgroundColor: '#10B981',
-    marginRight: 6,
+    marginRight: scale(6),
   },
   statusText: {
     color: '#047857',
-    fontSize: 12,
+    fontSize: scale(12),
     fontWeight: '600',
   },
   section: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 16,
+    borderRadius: scale(12),
+    padding: scale(16),
+    marginBottom: scale(12),
     shadowColor: '#1E293B',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.06,
@@ -355,27 +356,27 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: scale(16),
     fontWeight: '700',
     color: '#1E293B',
-    marginBottom: 16,
+    marginBottom: scale(12),
   },
   infoRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: scale(10),
     borderBottomWidth: 1,
     borderBottomColor: '#F1F5F9',
   },
   infoLabel: {
-    fontSize: 14,
+    fontSize: scale(13),
     color: '#64748B',
     fontWeight: '500',
     flex: 1,
   },
   infoValue: {
-    fontSize: 14,
+    fontSize: scale(13),
     color: '#1E293B',
     fontWeight: '600',
     flex: 1,
@@ -383,10 +384,10 @@ const styles = StyleSheet.create({
   },
   editButton: {
     backgroundColor: '#059669',
-    borderRadius: 12,
-    paddingVertical: 14,
+    borderRadius: scale(10),
+    paddingVertical: scale(12),
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: scale(10),
     shadowColor: '#059669',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
@@ -395,7 +396,7 @@ const styles = StyleSheet.create({
   },
   editButtonText: {
     color: '#FFFFFF',
-    fontSize: 16,
+    fontSize: scale(14),
     fontWeight: '700',
   },
   input: {

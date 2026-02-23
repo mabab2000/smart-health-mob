@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { SafeAreaView as RNSSafeAreaView } from 'react-native-safe-area-context/lib/commonjs/SafeAreaView';
-import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Image, ScrollView } from 'react-native';
 import Settings from './Settings';
 import Profile from './Profile';
 import Appointment from './Appointment';
@@ -66,96 +66,90 @@ export default function Dashboard({ email, onLogout, name, avatarUri, userId }: 
   return (
     <RNSSafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-        {tab === 'home' && (
-          <>
-            <View style={styles.headerCard}>
-              <View style={styles.header}>
-                <View style={styles.profileRow}>
-                  <TouchableOpacity onPress={() => setTab('profile')}>
-                    <Image source={{ uri: avatar }} style={styles.avatar} />
-                  </TouchableOpacity>
-                  <View style={styles.nameBlock}>
-                    <Text style={styles.name}>Welcome back, {displayName}</Text>
-                    <Text style={styles.sub}>{email}</Text>
-                    <View style={styles.statusBadge}>
-                      <View style={styles.statusDot} />
-                      <Text style={styles.statusText}>Online</Text>
-                    </View>
-                  </View>
-                </View>
-                <TouchableOpacity style={styles.notificationBtn}>
-                  <Text style={styles.notificationIcon}>🔔</Text>
-                  <View style={styles.notificationBadge}>
-                    <Text style={styles.notificationBadgeText}>2</Text>
-                  </View>
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            <View style={styles.statsCard}>
-              <View style={styles.statItem}>
-                <Text style={styles.statNumber}>{appointmentStats.total}</Text>
-                <Text style={styles.statLabel}>Total</Text>
-              </View>
-              <View style={styles.statDivider} />
-              <View style={styles.statItem}>
-                <Text style={styles.statNumber}>{appointmentStats.today}</Text>
-                <Text style={styles.statLabel}>Today</Text>
-              </View>
-              <View style={styles.statDivider} />
-              <View style={styles.statItem}>
-                <Text style={styles.statNumber}>{appointmentStats.pending}</Text>
-                <Text style={styles.statLabel}>Pending</Text>
-              </View>
-            </View>
-
-           
-
-            {/* Quick Actions removed for patient-focused layout */}
-          </>
-        )}
-
-        <View style={styles.content}>
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 140 }}>
           {tab === 'home' && (
             <>
-              <Text style={styles.sectionTitle}>Upcoming Appointment</Text>
-              <View style={styles.appCard}>
-                <Text style={styles.appTitle}>Dr. Emily Carter — Teleconsult</Text>
-                <Text style={styles.appTime}>Tomorrow • 10:30 AM</Text>
-                <Text style={styles.appNote}>Video call — 20 minutes</Text>
+              <View style={styles.headerCard}>
+                <View style={styles.header}>
+                  <View style={styles.profileRow}>
+                    <TouchableOpacity onPress={() => setTab('profile')}>
+                      <Image source={{ uri: avatar }} style={styles.avatar} />
+                    </TouchableOpacity>
+                    <View style={styles.nameBlock}>
+                      <Text style={styles.name}>Welcome back, {displayName}</Text>
+                      <Text style={styles.sub}>{email}</Text>
+                      <View style={styles.statusBadge}>
+                        <View style={styles.statusDot} />
+                        <Text style={styles.statusText}>Online</Text>
+                      </View>
+                    </View>
+                  </View>
+                  <TouchableOpacity style={styles.notificationBtn}>
+                    <Text style={styles.notificationIcon}>🔔</Text>
+                    <View style={styles.notificationBadge}>
+                      <Text style={styles.notificationBadgeText}>2</Text>
+                    </View>
+                  </TouchableOpacity>
+                </View>
               </View>
 
-              
-
-              <Text style={[styles.sectionTitle, { marginTop: 16 }]}>Recent messages</Text>
-              <View style={styles.messages}>
-                <View style={styles.msg}>
-                  <Text style={styles.msgTitle}>Lab results ready</Text>
-                  <Text style={styles.msgSub}>Your blood work is available — 2h ago</Text>
+              <View style={styles.statsCard}>
+                <View style={styles.statItem}>
+                  <Text style={styles.statNumber}>{appointmentStats.total}</Text>
+                  <Text style={styles.statLabel}>Total</Text>
                 </View>
-                <View style={styles.msg}>
-                  <Text style={styles.msgTitle}>Appointment confirmed</Text>
-                  <Text style={styles.msgSub}>Dr. Carter confirmed your slot — yesterday</Text>
+                <View style={styles.statDivider} />
+                <View style={styles.statItem}>
+                  <Text style={styles.statNumber}>{appointmentStats.today}</Text>
+                  <Text style={styles.statLabel}>Today</Text>
+                </View>
+                <View style={styles.statDivider} />
+                <View style={styles.statItem}>
+                  <Text style={styles.statNumber}>{appointmentStats.pending}</Text>
+                  <Text style={styles.statLabel}>Pending</Text>
                 </View>
               </View>
+
             </>
           )}
-          {tab === 'appointments' && <Appointment userId={userId} />}
-          {tab === 'settings' && <Settings email={email} onLogout={onLogout} />}
-          {tab === 'profile' && <Profile name={name} email={email} avatarUri={profileImage} userId={userId} onBack={() => setTab('home')} onLogout={onLogout} onSave={() => { fetchProfileImage?.(); }} />}
-        </View>
+
+          <View style={styles.content}>
+            {tab === 'home' && (
+              <>
+                <Text style={styles.sectionTitle}>Upcoming Appointment</Text>
+                <View style={styles.appCard}>
+                  <Text style={styles.appTitle}>Dr. Emily Carter — Teleconsult</Text>
+                  <Text style={styles.appTime}>Tomorrow • 10:30 AM</Text>
+                  <Text style={styles.appNote}>Video call — 20 minutes</Text>
+                </View>
+
+                <Text style={[styles.sectionTitle, { marginTop: 16 }]}>Recent messages</Text>
+                <View style={styles.messages}>
+                  <View style={styles.msg}>
+                    <Text style={styles.msgTitle}>Lab results ready</Text>
+                    <Text style={styles.msgSub}>Your blood work is available — 2h ago</Text>
+                  </View>
+                  <View style={styles.msg}>
+                    <Text style={styles.msgTitle}>Appointment confirmed</Text>
+                    <Text style={styles.msgSub}>Dr. Carter confirmed your slot — yesterday</Text>
+                  </View>
+                </View>
+              </>
+            )}
+            {tab === 'appointments' && <Appointment userId={userId} />}
+            {tab === 'settings' && <Settings email={email} onLogout={onLogout} />}
+            {tab === 'profile' && <Profile name={name} email={email} avatarUri={profileImage} userId={userId} onBack={() => setTab('home')} onLogout={onLogout} onSave={() => { fetchProfileImage?.(); }} />}
+          </View>
+        </ScrollView>
 
         <View style={styles.bottomMenu}>
           <TouchableOpacity style={[styles.tab, tab === 'home' && styles.tabActive]} onPress={() => setTab('home')}>
-            
             <Text style={[styles.tabLabel, tab === 'home' && styles.tabLabelActive]}>Home</Text>
           </TouchableOpacity>
           <TouchableOpacity style={[styles.tab, tab === 'appointments' && styles.tabActive]} onPress={() => setTab('appointments')}>
-
             <Text style={[styles.tabLabel, tab === 'appointments' && styles.tabLabelActive]}>Appointments</Text>
           </TouchableOpacity>
           <TouchableOpacity style={[styles.tab, tab === 'settings' && styles.tabActive]} onPress={() => setTab('settings')}>
-            
             <Text style={[styles.tabLabel, tab === 'settings' && styles.tabLabelActive]}>Settings</Text>
           </TouchableOpacity>
         </View>
@@ -198,11 +192,11 @@ const styles = StyleSheet.create({
     width: 60, 
     height: 60, 
     borderRadius: 30, 
-    backgroundColor: '#059669', 
+    backgroundColor: '#0b3d91', 
     marginRight: 16,
     borderWidth: 3,
     borderColor: '#FFFFFF',
-    shadowColor: '#059669',
+    shadowColor: '#0b3d91',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
@@ -230,11 +224,11 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#10B981',
+    backgroundColor: '#0b3d91',
     marginRight: 6,
   },
   statusText: {
-    color: '#10B981',
+    color: '#0b3d91',
     fontSize: 12,
     fontWeight: '600',
   },
@@ -326,7 +320,7 @@ const styles = StyleSheet.create({
   },
   waitingCard: {
     borderLeftWidth: 4,
-    borderLeftColor: '#059669',
+    borderLeftColor: '#0b3d91',
   },
   completedCard: {
     borderLeftWidth: 4,
@@ -429,7 +423,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 4,
   },
   tabActive: { 
-    backgroundColor: '#059669',
+    backgroundColor: '#0b3d91',
   },
   icon: { 
     fontSize: 20,
@@ -486,7 +480,7 @@ const styles = StyleSheet.create({
     padding: 16, 
     borderRadius: 12,
     borderLeftWidth: 4,
-    borderLeftColor: '#059669',
+    borderLeftColor: '#0b3d91',
     shadowColor: '#1E293B',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,

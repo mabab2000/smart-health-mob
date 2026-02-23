@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Modal, TextInput, Platform, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Modal, TextInput, Platform, Alert, FlatList } from 'react-native';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { SafeAreaView as RNSSafeAreaView } from 'react-native-safe-area-context/lib/commonjs/SafeAreaView';
 import Chat from './Chat';
@@ -64,38 +64,38 @@ export default function Appointment({ userId }: { userId?: number }) {
     setTime(formatTime(selected));
   };
 
-  useEffect(() => {
-    const fetchAppointments = async () => {
-      if (!userId) return;
-      setLoadingAppointments(true);
-      try {
-        const response = await fetch(`https://clinic-backend-s2lx.onrender.com/api/appointments/patient/${userId}`, {
-          method: 'GET',
-          headers: {
-            accept: 'application/json',
-          },
-        });
-        const data = await response.json();
-        if (response.ok && Array.isArray(data)) {
-          const items: AppointmentItem[] = data.map(item => ({
-            id: String(item.id),
-            title: item.doctor_name || 'Doctor pending',
-            datetime: formatAppointmentDateTime(item.date, item.time),
-            description: item.description || '',
-            status: item.status || 'pending',
-            doctor_id: item.doctor_id || item.doctor?.id || item.doctorId || null,
-          }));
-          setAppointments(items);
-        } else {
-          Alert.alert('Error', data?.message || 'Failed to load appointments');
-        }
-      } catch (error) {
-        Alert.alert('Error', 'Network error. Please try again.');
-      } finally {
-        setLoadingAppointments(false);
+  const fetchAppointments = async () => {
+    if (!userId) return;
+    setLoadingAppointments(true);
+    try {
+      const response = await fetch(`https://clinic-backend-s2lx.onrender.com/api/appointments/patient/${userId}`, {
+        method: 'GET',
+        headers: {
+          accept: 'application/json',
+        },
+      });
+      const data = await response.json();
+      if (response.ok && Array.isArray(data)) {
+        const items: AppointmentItem[] = data.map(item => ({
+          id: String(item.id),
+          title: item.doctor_name || 'Doctor pending',
+          datetime: formatAppointmentDateTime(item.date, item.time),
+          description: item.description || '',
+          status: item.status || 'pending',
+          doctor_id: item.doctor_id || item.doctor?.id || item.doctorId || null,
+        }));
+        setAppointments(items);
+      } else {
+        Alert.alert('Error', data?.message || 'Failed to load appointments');
       }
-    };
+    } catch (error) {
+      Alert.alert('Error', 'Network error. Please try again.');
+    } finally {
+      setLoadingAppointments(false);
+    }
+  };
 
+  useEffect(() => {
     fetchAppointments();
   }, [userId]);
 
@@ -128,7 +128,7 @@ export default function Appointment({ userId }: { userId?: number }) {
 
       const data = await response.json();
 
-      if (response.ok) {
+        if (response.ok) {
         const responseDate = typeof data.date === 'string' ? data.date.split('T')[0] : date;
         const responseTime = typeof data.time === 'string' ? data.time.slice(0, 8) : time;
         const item: AppointmentItem = { 
@@ -138,7 +138,9 @@ export default function Appointment({ userId }: { userId?: number }) {
           description: data.description || description,
           status: data.status || 'pending',
         };
-        setAppointments(prev => [item, ...prev]);
+        // Optimistic update (avoid duplicates) then re-fetch canonical list
+        setAppointments(prev => [item, ...prev.filter(p => p.id !== String(data.id))]);
+        await fetchAppointments();
         setShowAdd(false);
         setDate(''); setTime(''); setDescription('');
         setDateValue(new Date());
@@ -175,82 +177,84 @@ export default function Appointment({ userId }: { userId?: number }) {
           </View>
         ) : null}
 
-        {appointments.map(a => (
-          <View key={a.id} style={styles.appCard}>
-            <View style={styles.appHeader}>
-              <View style={styles.doctorInfo}>
-                <View style={styles.doctorAvatar}>
-                  <Text style={styles.doctorInitial}>{a.title.split(' ')[1]?.charAt(0) || 'D'}</Text>
-                </View>
-                <View style={styles.appDetails}>
-                  <Text style={styles.appTitle}>{a.title}</Text>
-                  <Text style={styles.appTime}>{a.datetime}</Text>
-                  <View
-                    style={[
-                      styles.statusBadge,
-                      a.status === 'confirmed'
-                        ? styles.statusConfirmed
-                        : a.status === 'cancelled'
-                        ? styles.statusCancelled
-                        : styles.statusPending,
-                    ]}
-                  >
-                    <Text
+        <FlatList
+          data={appointments}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={{ paddingBottom: 140 }}
+          renderItem={({ item: a }) => (
+            <View style={styles.appCard}>
+              <View style={styles.appHeader}>
+                <View style={styles.doctorInfo}>
+                  <View style={styles.doctorAvatar}>
+                    <Text style={styles.doctorInitial}>{a.title.split(' ')[1]?.charAt(0) || 'D'}</Text>
+                  </View>
+                  <View style={styles.appDetails}>
+                    <Text style={styles.appTitle}>{a.title}</Text>
+                    <Text style={styles.appTime}>{a.datetime}</Text>
+                    <View
                       style={[
-                        styles.statusText,
+                        styles.statusBadge,
                         a.status === 'confirmed'
-                          ? styles.statusConfirmedText
+                          ? styles.statusConfirmed
                           : a.status === 'cancelled'
-                          ? styles.statusCancelledText
-                          : styles.statusPendingText,
+                          ? styles.statusCancelled
+                          : styles.statusPending,
                       ]}
                     >
-                      {a.status}
-                    </Text>
+                      <Text
+                        style={[
+                          styles.statusText,
+                          a.status === 'confirmed'
+                            ? styles.statusConfirmedText
+                            : a.status === 'cancelled'
+                            ? styles.statusCancelledText
+                            : styles.statusPendingText,
+                        ]}
+                      >
+                        {a.status}
+                      </Text>
+                    </View>
                   </View>
                 </View>
+                <TouchableOpacity style={styles.moreButton}>
+                  <Text style={styles.moreIcon}>⋮</Text>
+                </TouchableOpacity>
               </View>
-              <TouchableOpacity style={styles.moreButton}>
-                <Text style={styles.moreIcon}>⋮</Text>
-              </TouchableOpacity>
-            </View>
-            
-            {a.description ? (
-              <View style={styles.noteContainer}>
-                <Text style={styles.noteLabel}>Description:</Text>
-                <Text style={styles.appNote}>{a.description}</Text>
-              </View>
-            ) : null}
 
-            <TouchableOpacity style={styles.perceptionLink} onPress={() => openPerceptions(a)}>
-              <Text style={styles.perceptionLinkText}>View perceptions</Text>
-            </TouchableOpacity>
-            
-            <View style={styles.actionRow}>
-              <TouchableOpacity 
-                style={[styles.actionBtn, styles.primaryAction]} 
-                onPress={() => startVideo(a)}
-              >
-                
-                <Text style={styles.actionText}>Video call</Text>
+              {a.description ? (
+                <View style={styles.noteContainer}>
+                  <Text style={styles.noteLabel}>Description:</Text>
+                  <Text style={styles.appNote}>{a.description}</Text>
+                </View>
+              ) : null}
+
+              <TouchableOpacity style={styles.perceptionLink} onPress={() => openPerceptions(a)}>
+                <Text style={styles.perceptionLinkText}>View perceptions</Text>
               </TouchableOpacity>
-              <TouchableOpacity 
-                style={[styles.actionBtn, styles.secondaryAction]} 
-                onPress={() => startVoice(a)}
-              >
-                
-                <Text style={styles.actionText}>Voice call</Text>
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={[styles.actionBtn, styles.tertiaryAction]} 
-                onPress={() => startChat(a)}
-              >
-                
-                <Text style={styles.actionText}>Chat</Text>
-              </TouchableOpacity>
+
+              <View style={styles.actionRow}>
+                <TouchableOpacity 
+                  style={[styles.actionBtn, styles.primaryAction]} 
+                  onPress={() => startVideo(a)}
+                >
+                  <Text style={styles.actionText}>Video call</Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={[styles.actionBtn, styles.secondaryAction]} 
+                  onPress={() => startVoice(a)}
+                >
+                  <Text style={styles.actionText}>Voice call</Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={[styles.actionBtn, styles.tertiaryAction]} 
+                  onPress={() => startChat(a)}
+                >
+                  <Text style={styles.actionText}>Chat</Text>
+                </TouchableOpacity>
+              </View>
             </View>
-          </View>
-        ))}
+          )}
+        />
 
         <TouchableOpacity style={styles.addBtn} onPress={() => setShowAdd(true)} activeOpacity={0.9}>
           <Text style={styles.addIcon}>+</Text>
@@ -406,7 +410,7 @@ const styles = StyleSheet.create({
     width: 50,
     height: 50,
     borderRadius: 25,
-    backgroundColor: '#059669',
+    backgroundColor: '#0b3d91',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -508,7 +512,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   primaryAction: { 
-    backgroundColor: '#059669',
+    backgroundColor: '#0b3d91',
   },
   secondaryAction: { 
     backgroundColor: '#0F172A',
@@ -529,10 +533,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#059669', 
+    backgroundColor: '#0b3d91', 
     paddingVertical: 16, 
     borderRadius: 12,
-    shadowColor: '#059669',
+    shadowColor: '#0b3d91',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -621,7 +625,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F1F5F9',
   },
   modalSave: { 
-    backgroundColor: '#059669',
+    backgroundColor: '#0b3d91',
   },
   modalCancelText: { 
     color: '#64748B',
